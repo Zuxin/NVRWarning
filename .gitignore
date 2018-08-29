@@ -2,10 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+# Environments
 venv/
 .idea/
 .python-version
-# General
+# OSX files
 .DS_Store
-.AppleDouble
-.LSOverride
