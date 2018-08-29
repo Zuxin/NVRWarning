@@ -5,3 +5,7 @@ __pycache__/
 venv/
 .idea/
 .python-version
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
