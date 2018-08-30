@@ -8,3 +8,5 @@ venv/
 .python-version
 # OSX files
 .DS_Store
+# image
+*.png
