@@ -5,13 +5,14 @@ import pygame
 import json
 import logging
 import getNVR
+from itertools import chain
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from firstMainWin import Ui_mainWindow
 from PyQt5.QtCore import QTimer, QDateTime, pyqtSignal, QThread
 
 url = r"http://127.0.0.1:8888/upload_to_tegu"  # 连接tegu
 files = {'file': (r'cache.png', open('cache.png', 'rb'), 'image/png', {})}  # 上传用缓存文件
-humanWarning = "human"  # 出现人的警告信息
+humanWarning = "person"  # 出现人的警告信息
 hydrantWarning = "hydrant"  # 消防设备警告信息
 sleepTime = 10  # 每次取视频的循环间隔时间
 file = "warning.mp3"  # 警报音
@@ -115,11 +116,11 @@ class BackendThread(QThread):
                             r = requests.post(url, files=files)
                             # 获得json文件然后读取
                             info = json.loads(r.content)
-                            # 判断返回情况只有晚上才开始判断
-                            if info[0][1] == humanWarning and (
+                            # 判断返回情况只有晚上才开始判断,将返回的嵌套列表flatten然后查看是否含有元素
+                            if humanWarning in list(chain.from_iterable(info)) and (
                                     int(time.strftime("%H")) > 22 or int(time.strftime("%H")) < 7):
                                 self.warning.emit("1警告，监测到" + cam_id + "号摄像头有人出没")
-                            elif info[0][1] == hydrantWarning:
+                            elif hydrantWarning in list(chain.from_iterable(info)):
                                 self.warning.emit("2警告，监测到" + cam_id + "号摄像头有消防设备移动")
                             else:
                                 self.warning.emit("正常")
