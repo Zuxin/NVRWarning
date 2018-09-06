@@ -30,5 +30,8 @@ def make_cache(cam_capture):
         raise TypeError('bad operand type')
     rval, frame = cam_capture.read()
     cv2.imwrite('cache.png', frame)
+    if not rval:
+        #  检查是否正常输出
+        raise TypeError('bad operand type')
     cv2.waitKey(1)
 
