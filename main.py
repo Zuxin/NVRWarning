@@ -25,7 +25,7 @@ def console_out(log_filename):
         datefmt='%Y-%m-%d %A %H:%M:%S',  # 时间
         filename=log_filename,  # log文件名
         filemode='a')  # 写入模式“w”或“a”
-    # Define a Handler and set a format which output to console
+    # 定义Handler
     console = logging.StreamHandler()  # 定义console handler
     console.setLevel(logging.INFO)  # 定义该handler级别
     formatter = logging.Formatter('%(asctime)s  %(filename)s : %(levelname)s  %(message)s')  # 定义该handler格式
@@ -129,6 +129,7 @@ class BackendThread(QThread):
                                FileNotFoundError, requests.HTTPError, requests.Timeout, requests.TooManyRedirects) as e:
                             # 错误处理
                             logging.error(e)
+                            logging.exception(e)
                             warning_message = warning_message + "摄像头" + str(cam_id) + "连接错误\n"
                             print(r.status_code)
                     else:
