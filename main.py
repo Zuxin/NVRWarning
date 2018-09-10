@@ -96,9 +96,7 @@ class BackendThread(QThread):
     def run(self):
         # 定义视频信号源
         try:
-            print("defcap")
             getNVR.define_captures()
-            print("endcap")
         except Exception as e:
             logging.warning(e)
             raise e
@@ -106,8 +104,9 @@ class BackendThread(QThread):
             try:
                 # 将每个摄像头信息传入tegu进行监测
                 global cam_id, warning_message
+                warning_message = ""
                 for cam_id, cam_capture in getNVR.captures:
-                    print(cam_id,cam_capture)
+                    print(cam_id, cam_capture)
                     # 判断摄像头是否正常工作
                     if cam_capture is not None:
                         # 生成缓存文件以监测
