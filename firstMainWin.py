@@ -58,5 +58,5 @@ class Ui_mainWindow(object):
         self.groupBox.setTitle(_translate("mainWindow", "当前状态："))
         self.label_3.setText(_translate("mainWindow", "当前时间"))
         self.label_2.setText(_translate("mainWindow", "<a href=\'http://www.giai.tech/#/index\'>泛化智能 2018</a>"))
-        self.label.setText(_translate("mainWindow", "正常"))
+        self.label.setText(_translate("mainWindow", "等待信号"))
 
