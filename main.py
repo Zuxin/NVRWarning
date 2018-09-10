@@ -4,7 +4,6 @@ import time
 import pygame
 import json
 import logging
-import os.path
 import getNVR
 from itertools import chain
 from PyQt5.QtWidgets import QApplication, QMainWindow
@@ -12,19 +11,35 @@ from firstMainWin import Ui_mainWindow
 from PyQt5.QtCore import QTimer, QDateTime, pyqtSignal, QThread
 
 url = r"http://127.0.0.1:8888/upload_to_tegu"  # 连接tegu
-files = {'file': (r'cache.png', open('cache.png', 'rb'), 'image/png', {})}  # 上传用缓存文件
 humanWarning = "person"  # 出现人的警告信息
 hydrantWarning = "hydrant"  # 消防设备警告信息
 sleepTime = 10  # 每次取视频的循环间隔时间
 warning_sound = "warning.mp3"  # 警报音
-# log文件
-logfile = os.path.dirname(os.getcwd()) + '/Logs/'+time.strftime('%Y%m%d%H%M', time.localtime(time.time())) + '.log'
-# 定义handler的输出格式
-formatter = logging.Formatter("%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
+
+
+def console_out(log_filename):
+    # Define a Handler and set a format which output to file
+    logging.basicConfig(
+        level=logging.DEBUG,  # 定义输出到文件的log级别，
+        format='%(asctime)s  %(filename)s : %(levelname)s  %(message)s',  # 定义输出log的格式
+        datefmt='%Y-%m-%d %A %H:%M:%S',  # 时间
+        filename=log_filename,  # log文件名
+        filemode='a')  # 写入模式“w”或“a”
+    # Define a Handler and set a format which output to console
+    console = logging.StreamHandler()  # 定义console handler
+    console.setLevel(logging.INFO)  # 定义该handler级别
+    formatter = logging.Formatter('%(asctime)s  %(filename)s : %(levelname)s  %(message)s')  # 定义该handler格式
+    console.setFormatter(formatter)
+    logging.getLogger().addHandler(console)  # 实例化添加handler
+
+    # 输出日志级别
+    logging.debug('logger debug message')
+    logging.info('logger info message')
+    logging.warning('logger warning message')
+    logging.error('logger error message')
 
 
 class MyMainWindow(QMainWindow, Ui_mainWindow):
-
     def __init__(self, parent=None):
         super(MyMainWindow, self).__init__(parent)
         self.setupUi(self)
@@ -80,14 +95,17 @@ class BackendThread(QThread):
     # 将返回的信号进行检验
     def run(self):
         # 定义视频信号源
-        getNVR.define_captures()
+        try:
+            getNVR.define_captures()
+            print("1")
+        except Exception as e:
+            logging.warning(e)
+            raise e
         while True:
             try:
                 # 将每个摄像头信息传入tegu进行监测
                 global cam_id, warning_message
-                warning_message = ""
                 for cam_id, cam_capture in getNVR.captures:
-                    # print(cam_id)
                     # 判断摄像头是否正常工作
                     if cam_capture is not None:
                         # 生成缓存文件以监测
@@ -95,8 +113,8 @@ class BackendThread(QThread):
                         try:
                             # 用post方法将缓存图片传入tegu
                             global r
-                            r = requests.post(r"http://127.0.0.1:8888/upload_to_tegu", files={'file': (r'cache.png', open(
-                                        'cache.png', 'rb'), 'image/png', {})})
+                            r = requests.post(r"http://127.0.0.1:8888/upload_to_tegu",
+                                              files={'file': (r'cache.png',  open('cache.png', 'rb'), 'image/png', {})})
                             r.encoding = "utf-8"
                             # 获得json文件然后读取
                             global info
@@ -107,14 +125,15 @@ class BackendThread(QThread):
                                 warning_message = warning_message + "警告，摄像头" + str(cam_id) + "发现有人出没\n"
                             elif hydrantWarning in list(chain.from_iterable(info)):
                                 warning_message = warning_message + "警告，摄像头" + str(cam_id) + "发现消防器材被移动\n"
-                        except(ValueError,
-                               ConnectionError, requests.HTTPError, requests.Timeout, requests.TooManyRedirects) as e:
+                        except(ValueError, ConnectionError,
+                               FileNotFoundError, requests.HTTPError, requests.Timeout, requests.TooManyRedirects) as e:
                             # 错误处理
-                            logging.exception(e)
+                            logging.error(e)
                             warning_message = warning_message + "摄像头" + str(cam_id) + "连接错误\n"
-                            # print(r.status_code)
+                            print(r.status_code)
                     else:
                         # 空摄像头处理
+                        print("错误")
                         warning_message = warning_message + "摄像头" + str(cam_id) + "无法获取\n"
                 if warning_message is not None:
                     self.warning.emit(warning_message)
@@ -124,7 +143,7 @@ class BackendThread(QThread):
                 time.sleep(sleepTime)
             except Exception as e:
                 logging.critical(e)
-                raise Exception
+                raise e
 
 
 if __name__ == "__main__":
@@ -132,13 +151,7 @@ if __name__ == "__main__":
     pygame.mixer.init()
     pygame.mixer.music.load(warning_sound)
     # 设置log日志
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)  # Log等级总开关
-    # 创建一个handler，用于写入日志文件
-    fh = logging.FileHandler(logfile, mode='w')
-    fh.setLevel(logging.DEBUG)  # 输出到file的log等级的开关
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    console_out('logging.log')
 
     app = QApplication(sys.argv)
     myWin = MyMainWindow()

@@ -12,13 +12,15 @@ captures = {}
 def define_captures():
     for i in cameraList:
         # 经过RTSP协议获得摄像数据
-        cap = cv2.VideoCapture('rtsp://admin:Ccut@edu2017@10.205.12.' + str(i) + ':554/Streaming/Channels/101?transportmode=unicast')
+        cap = cv2.VideoCapture('rtsp://admin:Ccut@edu2017@10.205.12.' + str(i) +
+                               ':554/Streaming/Channels/101?transportmode=unicast')
         # print(cap.isOpened())
         # 检测摄像头是否能用并添加进列表
         if cap.isOpened():
             captureList.append(cap)
         else:
             captureList.append(None)
+        print(cap)
     global captures
     captures = dict(zip(cameraList, captureList))
 
