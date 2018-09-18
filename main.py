@@ -119,44 +119,46 @@ class BackendThread(QThread):
                     # 判断摄像头是否正常工作
                     if cam_capture is not None:
                         # 生成缓存文件以监测
-                        getNVR.make_cache(cam_capture)
-                        try:
-                            # 用post方法将缓存图片传入tegu
-                            global r
-                            r = requests.post(
-                                r"http://127.0.0.1:8888/upload_to_tegu",
-                                files={
-                                    'file': (r'cache.png',
-                                             open('cache.png', 'rb'),
-                                             'image/png', {})
-                                })
-                            r.encoding = "utf-8"
-                            # 获得json文件然后读取
-                            global info
-                            info = json.loads(r.content)
-                            cam_id = getNVR.captureList.index(cam_capture)
-                            # print(info)
-                            # 判断返回情况并且只有晚上才开始判断,将返回的嵌套列表flatten然后查看是否含有元素
-                            if humanWarning in list(
-                                    chain.from_iterable(info)) and (
-                                        int(time.strftime("%H")) >= 22
-                                        or int(time.strftime("%H")) <= 7):
+                        if getNVR.make_cache(cam_capture):
+                            try:
+                                # 用post方法将缓存图片传入tegu
+                                global r
+                                r = requests.post(
+                                    r"http://127.0.0.1:8888/upload_to_tegu",
+                                    files={
+                                        'file': (r'cache.png',
+                                                 open('cache.png', 'rb'),
+                                                 'image/png', {})
+                                    })
+                                r.encoding = "utf-8"
+                                # 获得json文件然后读取
+                                global info, cam_id
+                                info = json.loads(r.content)
+                                cam_id = getNVR.captureList.index(cam_capture)
+                                # print(info)
+                                # 判断返回情况并且只有晚上才开始判断,将返回的嵌套列表flatten然后查看是否含有元素
+                                if humanWarning in list(
+                                        chain.from_iterable(info)) and (
+                                            int(time.strftime("%H")) >= 22
+                                            or int(time.strftime("%H")) <= 7):
+                                    warning_message = (
+                                        warning_message + "警告，摄像头"+str(
+                                            getNVR.cap_location[cam_id]) +
+                                        "发现有人出没\n")
+                                elif hydrantWarning in list(
+                                        chain.from_iterable(info)):
+                                    print(warning_message)
+                            except (ValueError, ConnectionError, FileNotFoundError,
+                                    requests.HTTPError, requests.Timeout,
+                                    requests.TooManyRedirects) as e:
+                                # 错误处理
+                                logging.error(e)
+                                logging.exception(e)
                                 warning_message = (
-                                    warning_message + "警告，摄像头"+str(
-                                        getNVR.cap_location[cam_id]) +
-                                    "发现有人出没\n")
-                            elif hydrantWarning in list(
-                                    chain.from_iterable(info)):
-                                print(warning_message)
-                        except (ValueError, ConnectionError, FileNotFoundError,
-                                requests.HTTPError, requests.Timeout,
-                                requests.TooManyRedirects) as e:
-                            # 错误处理
-                            logging.error(e)
-                            logging.exception(e)
-                            warning_message = (
-                                warning_message + "摄像头" + "连接错误\n")
-                            print(r.status_code)
+                                    warning_message + "摄像头" + "连接错误\n")
+                                print(r.status_code)
+                        else:
+                            warning_message = "摄像头"+str(cam_id)+"读取错误\n"
                     else:
                         # 空摄像头处理
                         print("错误")
