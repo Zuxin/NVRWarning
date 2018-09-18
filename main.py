@@ -65,13 +65,13 @@ class MyMainWindow(QMainWindow, Ui_mainWindow):
 
     # 显示当前ip地址
     def show_ip(self):
-        self.label_4.setText(tegu_ip)
+        self.label_4.setText("当前ip:\n" + tegu_ip)
 
     # 显示时间
     def show_time(self):
         time = QDateTime.currentDateTime()
         time_display = time.toString("yyyy-MM-dd hh:mm:ss dddd")
-        self.label_3.setText("当前ip" + time_display)
+        self.label_3.setText(time_display)
 
     # 警告信息
     def show_message(self, message):
@@ -186,6 +186,8 @@ if __name__ == "__main__":
     #label { color: orange;
     }
     #label_3 { color: blue
+    }
+    #label_4 { color: green
     }
         '''
     myWin.setStyleSheet(qssStyle)

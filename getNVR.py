@@ -41,17 +41,14 @@ def define_captures():
 
 
 def make_cache(cam_capture):
-    if not isinstance(cam_capture, (cv2.VideoCapture, None)):
+    if not (isinstance(cam_capture, cv2.VideoCapture) or cam_capture is None):
         #  参数类型检查
         raise TypeError('bad operand type')
     rval, frame = cam_capture.read()
     cv2.imwrite('cache.png', frame)
     # cv2.imread(frame)
-    '''
-    if rval:
+    if not rval:
         #  检查是否正常输出
-        pass
-    '''
-    return rval
-    cv2.release(cam_capture)
+        cam_capture.release()
     cv2.waitKey(10)
+    return rval
