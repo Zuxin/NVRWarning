@@ -145,6 +145,7 @@ class BackendThread(QThread):
                                         warning_message + "警告，摄像头"+str(
                                             getNVR.cap_location[cam_id]) +
                                         "发现有人出没\n")
+                                    getNVR.show_cap(cam_capture)
                                 elif hydrantWarning in list(
                                         chain.from_iterable(info)):
                                     print(warning_message)

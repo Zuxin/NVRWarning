@@ -52,3 +52,12 @@ def make_cache(cam_capture):
         cam_capture.release()
     cv2.waitKey(10)
     return rval
+
+
+def show_cap(cam_capture):
+    if not (isinstance(cam_capture, cv2.VideoCapture) or cam_capture is None):
+        #  参数类型检查
+        raise TypeError('bad operand type')
+    rval, frame = cam_capture.read()
+    cv2.imshow('cache.png', frame)
+
