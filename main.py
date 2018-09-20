@@ -42,6 +42,7 @@ def console_out(log_filename):
     logging.error('logger error message')
     '''
 
+
 class MyMainWindow(QMainWindow, Ui_mainWindow):
     def __init__(self, parent=None):
         super(MyMainWindow, self).__init__(parent)
