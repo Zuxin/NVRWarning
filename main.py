@@ -34,13 +34,13 @@ def console_out(log_filename):
     )  # 定义该handler格式
     console.setFormatter(formatter)
     logging.getLogger().addHandler(console)  # 实例化添加handler
-
+    '''
     # 输出日志级别
     logging.debug('logger debug message')
     logging.info('logger info message')
     logging.warning('logger warning message')
     logging.error('logger error message')
-
+    '''
 
 class MyMainWindow(QMainWindow, Ui_mainWindow):
     def __init__(self, parent=None):
