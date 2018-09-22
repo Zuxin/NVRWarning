@@ -5,6 +5,8 @@ import pygame
 import json
 import logging
 import getNVR
+import hog
+import numpy as np
 from itertools import chain
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from firstMainWin import Ui_mainWindow
@@ -14,8 +16,10 @@ tegu_ip = "127.0.0.1"
 url = r"http://" + tegu_ip + ":8888/upload_to_tegu"  # 连接tegu
 humanWarning = "person"  # 出现人的警告信息
 hydrantWarning = "hydrant"  # 消防设备警告信息
+FireWarning = "fire"  # 火灾警告信息
 sleepTime = 10  # 每次取视频的循环间隔时间
 warning_sound = "warning.mp3"  # 警报音
+threshold = 2  # 消防栓HOG阈值
 
 
 def console_out(log_filename):
@@ -106,11 +110,12 @@ class BackendThread(QThread):
     def run(self):
         # 定义视频信号源
         try:
+            # 初始化
             getNVR.define_captures()
+            getNVR.define_hydrant()
         except Exception as e:
             logging.warning(e)
             # 判断是否为空
-
         while True:
             try:
                 # 将每个摄像头信息传入tegu进行监测
@@ -127,29 +132,38 @@ class BackendThread(QThread):
                                 r = requests.post(
                                     r"http://127.0.0.1:8888/upload_to_tegu",
                                     files={
-                                        'file': (r'cache.png',
-                                                 open('cache.png', 'rb'),
+                                        'file': (r'cache.jpg',
+                                                 open('cache.jpg', 'rb'),
                                                  'image/png', {})
                                     })
                                 r.encoding = "utf-8"
                                 # 获得json文件然后读取
-                                global info, cam_id
+                                global info, cam_id, locatioin
                                 info = json.loads(r.content)
                                 cam_id = getNVR.captureList.index(cam_capture)
+                                locatioin = getNVR.cap_location[cam_id]
+                                if locatioin in getNVR.hydrant_location:
+                                    cap_hog = hog.compute_hog(cam_capture, cam_id)
+                                    hog_num = getNVR.hydrant_location.index(locatioin)
+                                    different = np.sqrt((cap_hog - getNVR.hydrant_hog[hog_num])**2)
+                                    if different > threshold:
+                                        warning_message = warning_message + "警告，摄像头" + locatioin + "发现有人出没\n"
                                 # print(info)
                                 # 判断返回情况并且只有晚上才开始判断,将返回的嵌套列表flatten然后查看是否含有元素
                                 if humanWarning in list(
                                         chain.from_iterable(info)) and (
                                             int(time.strftime("%H")) >= 22
                                             or int(time.strftime("%H")) <= 7):
+                                    # print(warning_message)
                                     warning_message = (
-                                        warning_message + "警告，摄像头"+str(
-                                            getNVR.cap_location[cam_id]) +
-                                        "发现有人出没\n")
+                                        warning_message + "警告，摄像头" + locatioin + "发现有人出没\n")
                                     getNVR.show_cap(cam_capture)
-                                elif hydrantWarning in list(
+                                elif FireWarning in list(
                                         chain.from_iterable(info)):
-                                    print(warning_message)
+                                    # print(warning_message)
+                                    warning_message = (
+                                            warning_message + "警告，摄像头" + locatioin + "发现火灾\n")
+                                    getNVR.show_cap(cam_capture)
                             except (ValueError, ConnectionError, FileNotFoundError,
                                     requests.HTTPError, requests.Timeout,
                                     requests.TooManyRedirects) as e:
