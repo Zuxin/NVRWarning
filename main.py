@@ -5,21 +5,12 @@ import pygame
 import json
 import logging
 import getNVR
-import hog
-import numpy as np
+import detection
+import configparser
 from itertools import chain
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from firstMainWin import Ui_mainWindow
 from PyQt5.QtCore import QTimer, QDateTime, pyqtSignal, QThread
-
-tegu_ip = "127.0.0.1"
-url = r"http://" + tegu_ip + ":8888/upload_to_tegu"  # 连接tegu
-humanWarning = "person"  # 出现人的警告信息
-hydrantWarning = "hydrant"  # 消防设备警告信息
-FireWarning = "fire"  # 火灾警告信息
-sleepTime = 10  # 每次取视频的循环间隔时间
-warning_sound = "warning.mp3"  # 警报音
-threshold = 2  # 消防栓HOG阈值
 
 
 def console_out(log_filename):
@@ -115,17 +106,25 @@ class BackendThread(QThread):
             getNVR.define_hydrant()
         except Exception as e:
             logging.warning(e)
-            # 判断是否为空
         while True:
             try:
-                # 将每个摄像头信息传入tegu进行监测
                 global warning_message
                 warning_message = ""
+                # 将每个摄像头信息传入tegu/传统方法进行监测
                 for cam_capture in getNVR.captureList:
                     # 判断摄像头是否正常工作
                     if cam_capture is not None:
-                        # 生成缓存文件以监测
-                        if getNVR.make_cache(cam_capture):
+                        global cam_id, location
+                        cam_id = getNVR.captureList.index(cam_capture)
+                        temporary_message = detection.make_cache(cam_capture, cam_id)
+                        location = cap_location[cam_id]
+                        if "error" not in temporary_message:
+                            if "fire" in temporary_message:
+                                warning_message = warning_message + "警告,摄像头"+location+"处发现火灾"
+                                detection.show_cap()
+                            if "hydrant" in temporary_message:
+                                warning_message = warning_message + "警告,摄像头"+location+"处发现有人移动消防栓"
+                                detection.show_cap()
                             try:
                                 # 用post方法将缓存图片传入tegu
                                 global r
@@ -138,16 +137,8 @@ class BackendThread(QThread):
                                     })
                                 r.encoding = "utf-8"
                                 # 获得json文件然后读取
-                                global info, cam_id, locatioin
+                                global info
                                 info = json.loads(r.content)
-                                cam_id = getNVR.captureList.index(cam_capture)
-                                locatioin = getNVR.cap_location[cam_id]
-                                if locatioin in getNVR.hydrant_location:
-                                    cap_hog = hog.compute_hog(cam_capture, cam_id)
-                                    hog_num = getNVR.hydrant_location.index(locatioin)
-                                    different = np.sqrt((cap_hog - getNVR.hydrant_hog[hog_num])**2)
-                                    if different > threshold:
-                                        warning_message = warning_message + "警告，摄像头" + locatioin + "发现有人出没\n"
                                 # print(info)
                                 # 判断返回情况并且只有晚上才开始判断,将返回的嵌套列表flatten然后查看是否含有元素
                                 if humanWarning in list(
@@ -156,22 +147,15 @@ class BackendThread(QThread):
                                             or int(time.strftime("%H")) <= 7):
                                     # print(warning_message)
                                     warning_message = (
-                                        warning_message + "警告，摄像头" + locatioin + "发现有人出没\n")
-                                    getNVR.show_cap(cam_capture)
-                                elif FireWarning in list(
-                                        chain.from_iterable(info)):
-                                    # print(warning_message)
-                                    warning_message = (
-                                            warning_message + "警告，摄像头" + locatioin + "发现火灾\n")
-                                    getNVR.show_cap(cam_capture)
+                                        warning_message + "警告，摄像头" + location + "发现有人出没\n")
+                                    detection.show_cap()
                             except (ValueError, ConnectionError, FileNotFoundError,
                                     requests.HTTPError, requests.Timeout,
                                     requests.TooManyRedirects) as e:
                                 # 错误处理
                                 logging.error(e)
                                 logging.exception(e)
-                                warning_message = (
-                                    warning_message + "摄像头" + "连接错误\n")
+                                warning_message = warning_message + "摄像头" + "连接错误\n"
                                 print(r.status_code)
                         else:
                             warning_message = "摄像头"+str(cam_id)+"读取错误\n"
@@ -192,6 +176,17 @@ class BackendThread(QThread):
 
 
 if __name__ == "__main__":
+    # 读取配置文件
+    conf = configparser.ConfigParser()
+    conf.read("config.ini")
+    tegu_ip = conf["HOST_IP"]["ip"]
+    url = r"http://" + tegu_ip + ":8888/upload_to_tegu"  # 连接tegu
+    humanWarning = conf["WARNING"]["humanWarning"]  # 出现人的警告信息
+    hydrantWarning = conf["WARNING"]["hydrantWarning"]  # 消防设备警告信息
+    FireWarning = conf["WARNING"]["fireWarning"]  # 火灾警告信息
+    sleepTime = conf["NOUN"]["sleep_time"]  # 每次取视频的循环间隔时间
+    warning_sound = conf["FILE"]["warning_sound"]  # 警报音
+    cap_location = conf["LOCATION"]["cap_location"].split(",")  # 摄像头地点
     # 读取报警音效
     pygame.mixer.init()
     pygame.mixer.music.load(warning_sound)
