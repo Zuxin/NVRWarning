@@ -71,7 +71,7 @@ class MyMainWindow(QMainWindow, Ui_mainWindow):
 
     # 警告信息
     def show_message(self, message):
-        print(message)
+        print("警告是"+message)
         if message == "正常":
             self.label.setText("正常")
             self.setStyleSheet('''
@@ -85,6 +85,7 @@ class MyMainWindow(QMainWindow, Ui_mainWindow):
                                     ''')
             # 播放警告音乐
             pygame.mixer.music.play()
+            # detection.show_cap()
         else:
             self.label.setText(message)
             self.setStyleSheet('''
@@ -104,27 +105,31 @@ class BackendThread(QThread):
             # 初始化
             getNVR.define_captures()
             getNVR.define_hydrant()
+            time.sleep(1)
+            getNVR.init_differents()
         except Exception as e:
             logging.warning(e)
+            raise e
         while True:
             try:
                 global warning_message
                 warning_message = ""
-                # 将每个摄像头信息传入tegu/传统方法进行监测
+                # 将每个摄像头信息传入Tegu/传统方法进行监测
                 for cam_capture in getNVR.captureList:
                     # 判断摄像头是否正常工作
                     if cam_capture is not None:
                         global cam_id, location
                         cam_id = getNVR.captureList.index(cam_capture)
+                        print("第"+str(cam_id)+"号摄像头正在检测")
                         temporary_message = detection.make_cache(cam_capture, cam_id)
                         location = cap_location[cam_id]
                         if "error" not in temporary_message:
                             if "fire" in temporary_message:
-                                warning_message = warning_message + "警告,摄像头"+location+"处发现火灾"
-                                detection.show_cap()
+                                warning_message = warning_message + "警告,摄像头"+location+"处发现火灾\n"
+                                detection.show_cap(cam_capture)
                             if "hydrant" in temporary_message:
-                                warning_message = warning_message + "警告,摄像头"+location+"处发现有人移动消防栓"
-                                detection.show_cap()
+                                warning_message = warning_message + "警告,摄像头"+location+"处可能有人移动消防栓\n"
+                                detection.show_cap(cam_capture)
                             try:
                                 # 用post方法将缓存图片传入tegu
                                 global r
@@ -141,14 +146,17 @@ class BackendThread(QThread):
                                 info = json.loads(r.content)
                                 # print(info)
                                 # 判断返回情况并且只有晚上才开始判断,将返回的嵌套列表flatten然后查看是否含有元素
-                                if humanWarning in list(
-                                        chain.from_iterable(info)) and (
+                                resualt = list(chain.from_iterable(info))
+
+                                if humanWarning in resualt and (
                                             int(time.strftime("%H")) >= 22
                                             or int(time.strftime("%H")) <= 7):
-                                    # print(warning_message)
-                                    warning_message = (
-                                        warning_message + "警告，摄像头" + location + "发现有人出没\n")
-                                    detection.show_cap()
+                                    humanumber = resualt.index(humanWarning)
+                                    print("人类置信度"+resualt[humanumber+1])
+                                    if float(resualt[humanumber+1]) > 1:
+                                        warning_message = (
+                                            warning_message + "警告，摄像头" + location + "发现有人出没\n")
+                                        detection.show_cap(cam_capture)
                             except (ValueError, ConnectionError, FileNotFoundError,
                                     requests.HTTPError, requests.Timeout,
                                     requests.TooManyRedirects) as e:
@@ -158,21 +166,28 @@ class BackendThread(QThread):
                                 warning_message = warning_message + "摄像头" + "连接错误\n"
                                 print(r.status_code)
                         else:
-                            warning_message = "摄像头"+str(cam_id)+"读取错误\n"
+                            warning_message = warning_message + "摄像头"+str(cam_id)+"读取错误\n"
+                            for i in getNVR.captureList:
+                                i.release()
+                            getNVR.captureList = []
+                            getNVR.define_captures()
                     else:
                         # 空摄像头处理
                         print("错误")
                         warning_message = warning_message + "摄像头" + "无法获取\n"
                     print(warning_message)
-                    if warning_message is not None:
+                    if warning_message:
                         self.warning.emit(warning_message)
                     else:
                         self.warning.emit("正常")
                 # sleepTime秒后再次执行
-                time.sleep(sleepTime)
+                time.sleep(int(sleepTime))
             except Exception as e:
                 logging.critical(e)
-                raise e
+                for i in getNVR.captureList:
+                    i.release()
+                getNVR.captureList = []
+                getNVR.define_captures()
 
 
 if __name__ == "__main__":
